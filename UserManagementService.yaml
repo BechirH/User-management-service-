@@ -1,0 +1,618 @@
+openapi: 3.0.1
+info:
+  title: User Management Service API
+  version: 2.0.0
+  description: Enhanced version with role and permission management
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        role:
+          type: string
+          example: "USER"
+        organizationId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        departmentId:
+          type: string
+          format: uuid
+          example: "4ba85f64-5717-4562-b3fc-2c963f66afa7"
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["users:read", "users:create"]
+    
+    Permission:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "users:create"
+        description:
+          type: string
+          example: "Create new users"
+    
+    Role:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "TEACHER_MANAGER"
+        description:
+          type: string
+          example: "Manages teachers and their activities"
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["users:read", "users:update"]
+        isSystemRole:
+          type: boolean
+          example: false
+    
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+          example: "SecurePass123!"
+    
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "admin@example.com"
+        password:
+          type: string
+          format: password
+          example: "AdminPass123!"
+    
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["users:read", "users:create"]
+    
+    CreateUserRequest:
+      type: object
+      required:
+        - email
+        - password
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          example: "newuser@example.com"
+        password:
+          type: string
+          format: password
+          example: "TempPass123!"
+        role:
+          type: string
+          example: "TEACHER_MANAGER"
+        organizationId:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        departmentId:
+          type: string
+          format: uuid
+          example: "4ba85f64-5717-4562-b3fc-2c963f66afa7"
+    
+    UpdateRoleRequest:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          example: "TEACHER_MANAGER"
+    
+    CreateRoleRequest:
+      type: object
+      required:
+        - name
+        - permissions
+      properties:
+        name:
+          type: string
+          example: "TEACHER_MANAGER"
+        description:
+          type: string
+          example: "Manages teachers in the system"
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["users:read", "users:update"]
+    
+    UpdateRolePermissionsRequest:
+      type: object
+      required:
+        - permissions
+      properties:
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["users:read", "users:update"]
+    
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+
+paths:
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users:
+    get:
+      tags: [Users]
+      summary: Get list of users (role-filtered)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: departmentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: organizationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: role
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    post:
+      tags: [Users]
+      summary: Create a new user 
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{userId}:
+    get:
+      tags: [Users]
+      summary: Get user by ID 
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    put:
+      tags: [Users]
+      summary: Update user details 
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    delete:
+      tags: [Users]
+      summary: Delete user 
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: User deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{userId}/role:
+    put:
+      tags: [Users]
+      summary: Update user role 
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /roles:
+    get:
+      tags: [Roles]
+      summary: Get all roles 
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    post:
+      tags: [Roles]
+      summary: Create a new role 
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Role created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /roles/{roleName}:
+    get:
+      tags: [Roles]
+      summary: Get role details 
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    put:
+      tags: [Roles]
+      summary: Update role details 
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '200':
+          description: Role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    delete:
+      tags: [Roles]
+      summary: Delete role 
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Role deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /roles/{roleName}/permissions:
+    get:
+      tags: [Roles]
+      summary: Get role permissions 
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of permissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    put:
+      tags: [Roles]
+      summary: Update role permissions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: roleName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRolePermissionsRequest'
+      responses:
+        '200':
+          description: Permissions updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions:
+    get:
+      tags: [Permissions]
+      summary: Get all available permissions 
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of permissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Permission'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
